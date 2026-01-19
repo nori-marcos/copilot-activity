@@ -63,11 +63,21 @@ document.addEventListener("DOMContentLoaded", () => {
         const participantsCount = details.participants.length;
         const spotsLeft = details.max_participants - participantsCount;
         
-        // Build participants list HTML
+        // Build participants list HTML with delete action per participant
         let participantsHTML = '';
         if (details.participants.length > 0) {
           const participantsList = details.participants
-            .map(email => `<li>${email}</li>`)
+            .map(email => `
+              <li>
+                <span class="participant-email">${email}</span>
+                <button
+                  class="remove-participant"
+                  data-activity="${name}"
+                  data-email="${email}"
+                  aria-label="Remove ${email} from ${name}"
+                  title="Remove"
+                >&times;</button>
+              </li>`)
             .join('');
           participantsHTML = `
             <div class="participants">
@@ -149,4 +159,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Load activities when page loads
   loadActivities();
+
+  // Handle participant removal (event delegation)
+  activitiesList.addEventListener('click', async (event) => {
+    const removeButton = event.target.closest('.remove-participant');
+    if (!removeButton) return;
+
+    const activityName = removeButton.dataset.activity;
+    const email = removeButton.dataset.email;
+
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activityName)}/signup?email=${encodeURIComponent(email)}`,
+        { method: 'DELETE' }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to remove participant');
+      }
+
+      messageDiv.className = 'message success';
+      messageDiv.textContent = data.message;
+      messageDiv.classList.remove('hidden');
+
+      // Refresh list to reflect removal
+      loadActivities();
+    } catch (error) {
+      messageDiv.className = 'message error';
+      messageDiv.textContent = error.message;
+      messageDiv.classList.remove('hidden');
+    }
+
+    setTimeout(() => {
+      messageDiv.classList.add('hidden');
+    }, 5000);
+  });
 });
